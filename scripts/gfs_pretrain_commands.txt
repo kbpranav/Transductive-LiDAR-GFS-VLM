@@ -1,0 +1,44 @@
+
+semseg-pt-v2m2-0-gfspretrain
+
+sh scripts/train.sh -p python -d semantic_kitti -c semseg-pt-v2m2-0-gfspretrain -n pt_v2_kitti_pretrain -g 4
+
+sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfspretrain -n pt_v3_nuscenes_pretrain -g 4
+
+sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfspretrain -n pt_v3_nuscenes_pretrain_eval -g 4 -o "weight=/home/kolarp/workspace/transductive-lidar/gfs_vl/exp/nuscenes/pt_v3_nuscenes_pretrain/model/model_best.pth"
+
+python run/infer_kitti.py \
+    --scan_path ../datasets/dataset/sequences/08/velodyne/000000.bin \
+    --label_path ../datasets/dataset/sequences/08/labels/000000.label \
+    --output_dir out/kitti_zeroshot
+
+
+sh scripts/train.sh \
+  -p python \
+  -d nuscenes \
+  -c semseg-pt-v3m1-0-gfspretrain \
+  -n pt_v3_nuscenes_pretrain \
+  -g 4 \
+  -r true \
+  -o "weight=/home/kolarp/workspace/transductive-lidar/gfs_vl/exp/nuscenes/pt_v3_nuscenes_pretrain/model/model_best.pth"
+
+
+
+
+  Registration training:
+
+  sh scripts/train.sh -p python -d scannet200 -c semseg-pt-v3m1-0-gfsregistrain_k1 -n ${EXP_NAME} -g 4
+
+  sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfsregistrain_k5 -n pt_v3_nuscenes_registrain_k5_29051 -g 4
+
+
+
+
+  Testing:
+
+  sh scripts/test.sh \
+  -d nuscenes \
+  -c semseg-pt-v3m1-0-gfsregistrain_k5 \
+  -n pt_v3_nuscenes_registrain_k5 \
+  -w regis1_model_last \
+  -g 1
