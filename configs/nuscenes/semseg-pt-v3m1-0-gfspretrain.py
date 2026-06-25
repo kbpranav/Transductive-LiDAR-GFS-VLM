@@ -7,8 +7,8 @@ from pointcept.datasets.preprocessing.nuscenes.nuscenes_constants import (
 _base_ = ["../_base_/default_runtime.py"]
 
 # misc custom setting
-batch_size = 4  # bs: total bs in all gpus
-mix_prob = 0.8
+batch_size = 12  # bs: total bs in all gpus
+mix_prob = 0
 empty_cache = True # False
 enable_amp = True
 
@@ -68,8 +68,8 @@ model = dict(
 )
 
 # scheduler settings
-epoch = 1
-eval_epoch = 1
+epoch = 30
+eval_epoch = 30
 optimizer = dict(type="AdamW", lr=0.002, weight_decay=0.005)
 scheduler = dict(
     type="OneCycleLR",
@@ -223,10 +223,10 @@ data = dict(
             dict(type="RandomFlip", p=0.5),
             dict(type="RandomJitter", sigma=0.005, clip=0.02),
             # ---> ADD THIS LINE <---
-            dict(type="SphereCrop", point_max=80000, mode="random"),
+            dict(type="SphereCrop", point_max=50000, mode="random"),
             dict(
                 type="GridSample",
-                grid_size=0.1, #0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,

@@ -6,6 +6,7 @@ export CUDA_VISIBLE_DEVICES=2,3,4,5,6,7
 export OMP_NUM_THREADS=12
 
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 PYTHON=python
 

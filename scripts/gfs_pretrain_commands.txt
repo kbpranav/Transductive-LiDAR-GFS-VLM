@@ -5,6 +5,8 @@ sh scripts/train.sh -p python -d semantic_kitti -c semseg-pt-v2m2-0-gfspretrain 
 
 sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfspretrain -n pt_v3_nuscenes_pretrain -g 4
 
+sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfspretrain -n pt_v3_nuscenes_newnovel_pretrain -g 4
+
 sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfspretrain -n pt_v3_nuscenes_pretrain_eval -g 4 -o "weight=/home/kolarp/workspace/transductive-lidar/gfs_vl/exp/nuscenes/pt_v3_nuscenes_pretrain/model/model_best.pth"
 
 python run/infer_kitti.py \

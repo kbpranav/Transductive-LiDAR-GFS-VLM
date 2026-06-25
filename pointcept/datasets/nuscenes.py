@@ -170,6 +170,8 @@ class NuScenesDataset_BASETrain(NuScenesDataset):
         self.base_index_mapping = {
             name: idx for idx, name in enumerate(NUSCENES_BASE_NAMES)
         }
+
+        
 @DATASETS.register_module()
 class NuScenesDataset_GFS(NuScenesDataset):
     """

@@ -11,8 +11,8 @@ NUSCENES_LEARNING_MAP = {
 # Learning ID → class name (all 16 classes)
 NUSCENES_LEARNING_ID_TO_NAME = {
     0:  "barrier",
-    1:  "bicycle",            # NOVEL
-    2:  "bus",
+    1:  "bicycle",            
+    2:  "bus",                # NOVEL
     3:  "car",
     4:  "construction-vehicle",
     5:  "motorcycle",         # NOVEL
@@ -33,14 +33,21 @@ CLASS_LABELS_NUSCENES = [
     NUSCENES_LEARNING_ID_TO_NAME[i] for i in range(16)
 ]
 
+# NUSCENES_BASE_NAMES = [
+#     "barrier", "bus", "car", "construction-vehicle",
+#     "traffic-cone", "trailer",
+#     "driveable-surface", "other-flat", "sidewalk",
+#     "terrain", "manmade", "vegetation",
+# ]
+
 NUSCENES_BASE_NAMES = [
-    "barrier", "bus", "car", "construction-vehicle",
+    "barrier", "bicycle", "car", "construction-vehicle",
     "traffic-cone", "trailer",
     "driveable-surface", "other-flat", "sidewalk",
     "terrain", "manmade", "vegetation",
 ]
 
-NUSCENES_NOVEL_NAMES = ["truck", "motorcycle", "bicycle", "pedestrian"]
+NUSCENES_NOVEL_NAMES = ["truck", "motorcycle", "bus", "pedestrian"]
 
 NUSCENES_BASE_NOVEL_NAMES = NUSCENES_BASE_NAMES + NUSCENES_NOVEL_NAMES
 
@@ -71,8 +78,8 @@ NUSCENES_LID_TO_SEMANTIC = [
 ]
 
 # Base/novel learning IDs based on NUSCENES_LID_TO_SEMANTIC (not NUSCENES_LEARNING_ID_TO_NAME)
-NUSCENES_BASE_IDS  = [0, 2, 3, 4, 7, 8, 10, 11, 12, 13, 14, 15]
-NUSCENES_NOVEL_IDS = [9, 5, 1, 6]   # truck=9, motorcycle=5, bicycle=1, pedestrian=6
+NUSCENES_BASE_IDS  = [0, 1, 3, 4, 7, 8, 10, 11, 12, 13, 14, 15]
+NUSCENES_NOVEL_IDS = [9, 5, 2, 6]   # truck=9, motorcycle=5, bus=2, pedestrian=6
 
 # Base-only learning map: novel class raw IDs → -1
 NUSCENES_BASE_LEARNING_MAP = {
