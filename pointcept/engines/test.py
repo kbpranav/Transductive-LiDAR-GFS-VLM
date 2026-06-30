@@ -394,6 +394,92 @@ class SemSegTester(TesterBase):
 
 
 @TESTERS.register_module()
+class SemSegValTester(TesterBase):
+    """
+    Replicates SemSegEvaluator hook: simple single-pass eval on the val split.
+    Use this to quickly re-run the same eval that fires after each training epoch.
+    """
+
+    @staticmethod
+    def collate_fn(batch):
+        return collate_fn(batch)
+
+    def build_test_loader(self):
+        val_dataset = build_dataset(self.cfg.data.val)
+        if comm.get_world_size() > 1:
+            sampler = torch.utils.data.distributed.DistributedSampler(val_dataset)
+        else:
+            sampler = None
+        return torch.utils.data.DataLoader(
+            val_dataset,
+            batch_size=self.cfg.batch_size_val_per_gpu,
+            shuffle=False,
+            num_workers=self.cfg.num_worker_per_gpu,
+            pin_memory=True,
+            sampler=sampler,
+            collate_fn=collate_fn,
+        )
+
+    def test(self):
+        logger = self.logger
+        logger.info(">>>>>>>>>>>>>>>> Start Evaluation >>>>>>>>>>>>>>>>")
+        self.model.eval()
+
+        intersection_total = np.zeros(self.cfg.data.num_classes)
+        union_total = np.zeros(self.cfg.data.num_classes)
+        target_total = np.zeros(self.cfg.data.num_classes)
+
+        for i, input_dict in enumerate(self.test_loader):
+            for key, val in input_dict.items():
+                if isinstance(val, torch.Tensor):
+                    input_dict[key] = val.cuda(non_blocking=True)
+            with torch.no_grad():
+                output_dict = self.model(input_dict)
+            pred = output_dict["seg_logits"].max(1)[1]
+            segment = input_dict["segment"]
+
+            intersection, union, target = intersection_and_union_gpu(
+                pred, segment,
+                self.cfg.data.num_classes,
+                self.cfg.data.ignore_index,
+            )
+            if comm.get_world_size() > 1:
+                dist.all_reduce(intersection)
+                dist.all_reduce(union)
+                dist.all_reduce(target)
+
+            intersection_total += intersection.cpu().numpy()
+            union_total += union.cpu().numpy()
+            target_total += target.cpu().numpy()
+
+            if (i + 1) % 50 == 0 or (i + 1) == len(self.test_loader):
+                logger.info(f"Eval: [{i+1}/{len(self.test_loader)}]")
+
+        iou_class = intersection_total / (union_total + 1e-10)
+        acc_class = intersection_total / (target_total + 1e-10)
+        m_iou = float(np.mean(iou_class))
+        m_acc = float(np.mean(acc_class))
+        all_acc = float(intersection_total.sum() / (target_total.sum() + 1e-10))
+
+        logger.info(
+            "Val result: mIoU/mAcc/allAcc {:.4f}/{:.4f}/{:.4f}".format(
+                m_iou, m_acc, all_acc
+            )
+        )
+        for i in range(self.cfg.data.num_classes):
+            logger.info(
+                "Class_{idx} - {name} Result: iou/accuracy {iou:.4f}/{accuracy:.4f}".format(
+                    idx=i,
+                    name=self.cfg.data.names[i],
+                    iou=iou_class[i],
+                    accuracy=acc_class[i],
+                )
+            )
+        logger.info("<<<<<<<<<<<<<<<<< End Evaluation <<<<<<<<<<<<<<<<<")
+        return m_iou, m_acc, all_acc, iou_class
+
+
+@TESTERS.register_module()
 class GFSSemSegFastTester(TesterBase):
     """
     Fast (non-fragment) tester for GFS models.

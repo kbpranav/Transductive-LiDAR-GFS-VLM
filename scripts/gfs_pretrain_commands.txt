@@ -44,3 +44,13 @@ sh scripts/train.sh \
   -n pt_v3_nuscenes_registrain_k5 \
   -w regis1_model_last \
   -g 1
+
+
+
+  sh scripts/test.sh \
+  -d nuscenes \
+  -c semseg-pt-v3m1-0-gfspretrain \
+  -n pt_v3_nuscenes_newnovel1_pretrain \
+  -w model_best \
+  -g 1
+  
