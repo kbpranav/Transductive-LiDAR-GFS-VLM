@@ -12,8 +12,8 @@ train = dict(type="GFS_VL_Trainer")
 test = dict(type="GFSSemSegFastTester")
 
 # misc custom setting
-batch_size = 6  # bs: total bs in all gpus
-num_worker = 12
+batch_size = 8  # bs: total bs in all gpus
+num_worker = 8
 mix_prob = 0
 empty_cache = True
 enable_amp = True
@@ -29,12 +29,12 @@ hooks = [
 
 evaluate = True
 vis = None
-ps_thresh = 0.35   # lowered from 0.54 — more VLM predictions survive filtering
-ai_thresh = 0.60   # lowered from 0.95 — rare classes can now receive pseudo-labels
+ps_thresh = 0.50   # lowered from 0.54 — more VLM predictions survive filtering
+ai_thresh = 0.90   # lowered from 0.95 — rare classes can now receive pseudo-labels
 nb_mix_blks = 0
 
 weight = ""
-backbone_weight = "./exp/nuscenes/pt_v3_nuscenes_pretrain_eval/model/model_best.pth"
+backbone_weight = "./exp/nuscenes/pt_v3_nuscenes_newnovel1_pretrain/model/model_best.pth"
 vlm_3d_weight = "./data/nuscenes_openseg.pth.tar"
 
 # model settings
@@ -94,8 +94,8 @@ model = dict(
 )
 
 # scheduler settings
-epoch = 30
-eval_epoch = 30
+epoch = 20
+eval_epoch = 20
 optimizer = dict(type="Adam", lr=0.001)
 scheduler = dict(
     type="MultiStepLR",
@@ -169,10 +169,10 @@ data = dict(
             dict(type="RandomScale", scale=[0.9, 1.1]),
             dict(type="RandomFlip", p=0.5),
             dict(type="RandomJitter", sigma=0.005, clip=0.02),
-            dict(type="SphereCrop", point_max=80000, mode="random"),
+            dict(type="SphereCrop", point_max=50000, mode="random"),
             dict(
                 type="GridSample",
-                grid_size=0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -197,7 +197,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -222,7 +222,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -247,7 +247,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -272,7 +272,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -297,7 +297,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -320,7 +320,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -345,7 +345,7 @@ data = dict(
         test_cfg=dict(
             voxelize=dict(
                 type="GridSample",
-                grid_size=0.05,
+                grid_size=0.1,
                 hash_type="fnv",
                 mode="test",
                 return_grid_coord=True,

@@ -430,8 +430,8 @@ class NuScenesDataset_REGISTrain(NuScenesDataset_BASETrain):
 
 
         # Sanity check: novel raw IDs must map to GFS unified IDs 12..15
-        # truck=raw23→12, motorcycle=raw21→13, bicycle=raw14→14, pedestrian=raw2→15
-        expected = {23: 12, 21: 13, 14: 14, 2: 15}
+        # truck=raw23→12, motorcycle=raw21→13, bus=raw15→14, pedestrian=raw2→15
+        expected = {23: 12, 21: 13, 15: 14, 2: 15}
         for raw_id, expected_uid in expected.items():
             assert self.regis_lookup[raw_id] == expected_uid, (
                 f"regis_lookup[{raw_id}] = {self.regis_lookup[raw_id]}, "
