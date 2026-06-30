@@ -33,6 +33,7 @@ sh scripts/train.sh \
 
   sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfsregistrain_k5 -n pt_v3_nuscenes_registrain_k5_29051 -g 4
 
+  sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfsregistrain_k5 -n pt_v3_nuscenes_registrain_k5_newnovel -g 4
 
 
 
@@ -47,10 +48,6 @@ sh scripts/train.sh \
 
 
 
-  sh scripts/test.sh \
-  -d nuscenes \
-  -c semseg-pt-v3m1-0-gfspretrain \
-  -n pt_v3_nuscenes_newnovel1_pretrain \
-  -w model_best \
-  -g 1
-  
+Pretrain Testing Eval script:
+
+sh scripts/test.sh   -d nuscenes   -c semseg-pt-v3m1-0-gfspretrain   -n pt_v3_nuscenes_newnovel1_pretrain   -w model_best   -g 1   -o "test.type=SemSegValTester"

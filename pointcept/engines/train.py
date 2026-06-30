@@ -362,9 +362,7 @@ class GFS_VL_Trainer(Trainer):
     def _build_clip_text_embeddings_openscene(self):
         """
         Build CLIP text embeddings for all base+novel classes.
-        Uses prompt ensembling (average over multiple templates) so that
-        rare / visually similar classes like bicycle are better separated
-        from their nearest neighbours (e.g. motorcycle) in CLIP space.
+        Single template "a {name} in a outdoor scene" — matches OpenScene's exact setup.
         """
         import clip
         clip_model, _ = clip.load("ViT-L/14@336px", device='cuda', jit=False)
@@ -375,32 +373,41 @@ class GFS_VL_Trainer(Trainer):
         )
         self.logger.info(f"Building CLIP text embeddings for {len(class_names)} classes: {class_names}")
 
-        # Multiple templates per class — averaged to get a more robust embedding.
-        # The templates are chosen to emphasise features that distinguish
-        # visually similar classes in LiDAR (e.g. bicycle vs motorcycle).
-        templates = [
-            "a {} in a street scene",
-            "a {} on the road",
-            "a {} in an outdoor scene",
-            "a photo of a {}",
-            "a lidar scan of a {}",
-            "a point cloud of a {}",
-        ]
+        # ── Multi-template prompt ensembling (commented out — not working) ────
+        # templates = [
+        #     "a {} in a street scene",
+        #     "a {} on the road",
+        #     "a {} in an outdoor scene",
+        #     "a photo of a {}",
+        #     "a lidar scan of a {}",
+        #     "a point cloud of a {}",
+        # ]
+        # with torch.no_grad():
+        #     all_embeddings = []
+        #     for tmpl in templates:
+        #         texts = [tmpl.format(name) for name in class_names]
+        #         tokens = clip.tokenize(texts).cuda()
+        #         emb = clip_model.encode_text(tokens).float()
+        #         emb = emb / (emb.norm(dim=-1, keepdim=True) + 1e-5)
+        #         all_embeddings.append(emb)
+        #     # Average across templates then re-normalise
+        #     self.text_embeddings = torch.stack(all_embeddings).mean(dim=0)
+        #     self.text_embeddings = self.text_embeddings / (
+        #         self.text_embeddings.norm(dim=-1, keepdim=True) + 1e-5
+        #     )
+        # self.logger.info(f"Text embeddings built with {len(templates)} templates: {self.text_embeddings.shape}")
+        # ─────────────────────────────────────────────────────────────────────
+
+        # Single template — OpenScene original: "a {name} in a outdoor scene"
+        prompts = [f"a {name} in a outdoor scene" for name in class_names]
+        self.logger.info("Prompts:\n" + "\n".join(f"  {p}" for p in prompts))
 
         with torch.no_grad():
-            all_embeddings = []
-            for tmpl in templates:
-                texts = [tmpl.format(name) for name in class_names]
-                tokens = clip.tokenize(texts).cuda()
-                emb = clip_model.encode_text(tokens).float()
-                emb = emb / (emb.norm(dim=-1, keepdim=True) + 1e-5)
-                all_embeddings.append(emb)
-            # Average across templates then re-normalise
-            self.text_embeddings = torch.stack(all_embeddings).mean(dim=0)
-            self.text_embeddings = self.text_embeddings / (
-                self.text_embeddings.norm(dim=-1, keepdim=True) + 1e-5
-            )
-        self.logger.info(f"Text embeddings built with {len(templates)} templates: {self.text_embeddings.shape}")
+            tokens = clip.tokenize(prompts).cuda()
+            self.text_embeddings = clip_model.encode_text(tokens).float()
+            self.text_embeddings = self.text_embeddings / self.text_embeddings.norm(dim=-1, keepdim=True)
+
+        self.logger.info(f"Text embeddings: {self.text_embeddings.shape}")
         # text_embeddings: (num_classes, 768)
         del clip_model
         torch.cuda.empty_cache()
@@ -420,7 +427,7 @@ class GFS_VL_Trainer(Trainer):
         xyz = input_dict["coord"]        # (N, 3) on CUDA
         offset = input_dict["offset"]    # cumulative end indices, e.g. [512] or [512, 1024]
 
-        voxel_size = 0.05
+        voxel_size = 0.1
         coords_list = []
         feats_list = []
         self._sparse_offsets = []        # list of (sparse_start, inds_recon_cuda, orig_start)
@@ -476,11 +483,21 @@ class GFS_VL_Trainer(Trainer):
             f"VLM unprojection broken: {feats.shape[0]} vs {input_dict['coord'].shape[0]}"
         )
 
-        feats_norm = feats / (feats.norm(dim=-1, keepdim=True) + 1e-5)
-        logits = feats_norm.half() @ self.text_embeddings.half().t()  # (N, num_classes)
-        seg_preds = logits.max(dim=1)[1]                       # (N,)
+        # ── Normalised 3D features + dot product (commented out) ─────────────
+        # OpenScene distill mode does NOT normalise 3D features before the dot
+        # product — normalising here changes the effective similarity scale and
+        # was causing degraded pseudo-label quality.
+        # feats_norm = feats / (feats.norm(dim=-1, keepdim=True) + 1e-5)
+        # logits = feats_norm.half() @ self.text_embeddings.half().t()
+        # seg_preds = logits.max(dim=1)[1]
+        # return seg_preds, feats_norm
+        # ─────────────────────────────────────────────────────────────────────
 
-        return seg_preds, feats_norm
+        # Raw dot-product — OpenScene original (no 3D feature normalisation)
+        logits = feats.half() @ self.text_embeddings.half().t()   # (N, num_classes)
+        seg_preds = logits.max(dim=1)[1]                          # (N,)
+
+        return seg_preds, feats
 
     # ─────────────────────────────────────────────────────────────────────
     # Prototype extraction (novel classes, from registration set)
