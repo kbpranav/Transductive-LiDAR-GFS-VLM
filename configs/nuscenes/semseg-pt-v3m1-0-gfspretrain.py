@@ -7,8 +7,8 @@ from pointcept.datasets.preprocessing.nuscenes.nuscenes_constants import (
 _base_ = ["../_base_/default_runtime.py"]
 
 # misc custom setting
-batch_size = 12  # bs: total bs in all gpus
-mix_prob = 0
+batch_size = 4  # bs: total bs in all gpus
+mix_prob = 0.8
 empty_cache = True # False
 enable_amp = True
 
