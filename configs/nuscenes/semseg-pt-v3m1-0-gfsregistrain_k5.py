@@ -13,7 +13,7 @@ test = dict(type="GFSSemSegFastTester")
 
 # misc custom setting
 batch_size = 8  # bs: total bs in all gpus
-num_worker = 8
+num_worker = 4
 mix_prob = 0
 empty_cache = True
 enable_amp = True
@@ -30,7 +30,7 @@ hooks = [
 evaluate = True
 vis = None
 ps_thresh = 0.50   # lowered from 0.54 — more VLM predictions survive filtering
-ai_thresh = 0.90   # lowered from 0.95 — rare classes can now receive pseudo-labels
+ai_thresh = 0.90   # lowered from 0.95 — rare classes can now receive pseudo-labelsx
 nb_mix_blks = 0
 
 weight = ""
