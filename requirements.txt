@@ -1,0 +1,226 @@
+# requirements.txt - exact dependency snapshot of the conda env this project was run in
+#
+# Captured from: conda env `gfs_vlm` (python -m pip freeze), 2026-11-16.
+# Install order / build steps for the packages marked "# -- special install --"
+# below follow README.md's Installation section - this file documents exact
+# versions, it does not replace that multi-step build process (several of
+# these packages are compiled CUDA extensions, not plain pip wheels).
+#
+# --- System / toolchain (not pip-installable, captured for reproducibility) ---
+#   OS:             Ubuntu 24.04.5 LTS
+#   Python:         3.10.20
+#   pip:            26.0.1
+#   NVIDIA driver:  595.99.02 (CUDA 13.2 capable; torch wheels below target CUDA 11.8)
+#   GPU tested on:  NVIDIA A40
+#   GCC / G++:      13.2.0 (conda-forge build) - used to compile pointops/pointops2/spconv
+#   CMake:          3.28.3
+#   bc:             1.07.1 (required by run_gpu_cleaner.sh)
+#
+# --- Core deep learning stack (CUDA 11.8 build) ---
+# pip install torch==2.1.0+cu118 torchvision==0.16.0+cu118 torchaudio==2.1.0+cu118 \
+#     --index-url https://download.pytorch.org/whl/cu118
+torch==2.1.0+cu118
+torchvision==0.16.0+cu118
+torchaudio==2.1.0+cu118
+triton==2.1.0
+
+# pip install torch-cluster==1.6.3 torch-scatter==2.1.2 torch-sparse==0.6.18 \
+#     -f https://data.pyg.org/whl/torch-2.1.0+cu118.html
+torch-cluster==1.6.3+pt21cu118
+torch-scatter==2.1.2+pt21cu118
+torch-sparse==0.6.18+pt21cu118
+torch-geometric==2.7.0
+
+# -- special install: pip install flash-attn==2.5.8 --no-build-isolation --
+flash-attn==2.5.8
+
+# -- special install: pip install spconv-cu118==2.3.8 (see traveller59/spconv) --
+spconv-cu118==2.3.8
+cumm-cu118==0.7.11
+pccm==0.4.16
+ccimport==0.4.4
+ninja==1.13.0
+pybind11==3.0.3
+
+# -- special install: pip install git+https://github.com/openai/CLIP.git@d05afc436d78f1c48dc0dbf8e5980a9d471f35f6 --
+clip @ git+https://github.com/openai/CLIP.git@d05afc436d78f1c48dc0dbf8e5980a9d471f35f6
+ftfy==6.3.1
+regex==2026.4.4
+
+# -- special install: MinkowskiEngine - build from source against torch 2.1.0+cu118 --
+MinkowskiEngine==0.5.4
+
+# --- Point cloud / 3D processing ---
+open3d==0.19.0
+h5py==3.16.0
+plyfile==1.1.3
+SharedArray==3.2.4
+ImageIO==2.37.3
+opencv-python==4.13.0.92
+opencv-python-headless==4.11.0.86
+shapely==2.0.7
+scikit-learn==1.7.2
+scipy==1.15.3
+numpy==1.26.4
+
+# --- nuScenes ---
+nuscenes-devkit==1.2.0
+pyquaternion==0.9.9
+
+# --- Pointcept config / training utils ---
+addict==2.4.0
+easydict==1.13
+yapf==0.40.1
+ConfigArgParse==1.7.5
+einops==0.8.2
+timm==1.0.26
+termcolor==3.3.0
+tqdm==4.67.3
+fsspec==2024.2.0
+
+# --- Experiment tracking / logging ---
+wandb==0.27.0
+tensorboard==2.20.0
+tensorboard-data-server==0.7.2
+tensorboardX==2.6.5
+GitPython==3.1.50
+gitdb==4.0.12
+smmap==5.0.3
+sentry-sdk==2.60.0
+
+# --- GPU monitoring (used by nothing in-repo directly, but installed in-env) ---
+nvidia-ml-py==13.590.48
+nvitop==1.6.2
+psutil==7.2.2
+
+# --- Plotting / viz (dash/plotly used by nvitop) ---
+matplotlib==3.10.9
+contourpy==1.3.2
+cycler==0.12.1
+fonttools==4.62.1
+kiwisolver==1.5.0
+pyparsing==3.3.2
+dash==4.1.0
+plotly==6.7.0
+Flask==3.1.3
+Werkzeug==3.1.8
+blinker==1.9.0
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+retrying==1.4.2
+narwhals==2.20.0
+descartes==1.1.0
+
+# --- pycocotools (used by PLA/RegionPLC eval utilities) ---
+pycocotools==2.0.11
+
+# --- General scientific/data ---
+pandas==2.3.3
+joblib==1.5.3
+threadpoolctl==3.6.0
+sympy==1.14.0
+mpmath==1.3.0
+networkx==3.4.2
+
+# --- HTTP / networking ---
+requests==2.28.1
+urllib3==1.26.13
+idna==3.4
+charset-normalizer==2.1.1
+httpcore==1.0.9
+httpx==0.28.1
+h11==0.16.0
+anyio==4.13.0
+aiohttp==3.13.5
+aiosignal==1.4.0
+aiohappyeyeballs==2.6.1
+async-timeout==5.0.1
+multidict==6.7.1
+yarl==1.23.0
+frozenlist==1.8.0
+propcache==0.4.1
+xxhash==3.6.0
+
+# --- Hugging Face / model hub (CLIP-adjacent tooling) ---
+huggingface_hub==1.11.0
+hf-xet==1.4.3
+safetensors==0.7.0
+
+# --- Jupyter / interactive (ipython kept in-env for debugging) ---
+ipython==8.39.0
+ipywidgets==8.1.8
+jupyterlab_widgets==3.0.16
+widgetsnbextension==4.0.15
+jupyter_core==5.9.1
+nbformat==5.10.4
+comm==0.2.3
+traitlets==5.14.3
+matplotlib-inline==0.2.1
+jedi==0.19.2
+parso==0.8.6
+prompt_toolkit==3.0.52
+pexpect==4.9.0
+ptyprocess==0.7.0
+decorator==5.2.1
+executing==2.2.1
+asttokens==3.0.1
+stack-data==0.6.3
+pure_eval==0.2.3
+wcwidth==0.6.0
+nest-asyncio==1.6.0
+fastjsonschema==2.21.2
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+rpds-py==0.30.0
+referencing==0.37.0
+platformdirs==4.9.6
+
+# --- Rich/CLI formatting (wandb/typer dependency chain) ---
+rich==15.0.0
+Pygments==2.20.0
+markdown-it-py==4.0.0
+mdurl==0.1.2
+Markdown==3.10.2
+typer==0.24.1
+click==8.3.2
+shellingham==1.5.4
+portalocker==3.2.0
+
+# --- Misc / transitive ---
+absl-py==2.4.0
+cachetools==7.0.6
+grpcio==1.80.0
+protobuf==7.34.1
+packaging==26.0
+filelock==3.25.2
+six==1.17.0
+python-dateutil==2.9.0.post0
+pytz==2026.1.post1
+tzdata==2026.2
+PyYAML==6.0.3
+lark==1.3.1
+tomli==2.4.1
+attrs==26.1.0
+annotated-types==0.7.0
+annotated-doc==0.0.4
+pydantic==2.13.4
+pydantic_core==2.46.4
+typing-inspection==0.4.2
+typing_extensions==4.15.0
+exceptiongroup==1.3.1
+importlib_metadata==9.0.0
+zipp==3.23.1
+certifi==2026.4.22
+fire==0.7.1
+parameterized==0.9.0
+
+# ==========================================================================
+# NOT pip-installable from this file - compiled/editable from this repo's
+# own source during setup (see README.md "Installation"):
+#
+#   pointops==1.0      # built from libs/pointops      (TORCH_CUDA_ARCH_LIST=8.0 python setup.py install)
+#   pointops2==1.0      # built from libs/pointops2      (TORCH_CUDA_ARCH_LIST=8.0 python setup.py install)
+#   pcseg==0.2.0+0      # editable install of pointcept/models/PLA (RegionPLC) - pip install -e pointcept/models/PLA
+#                        # also needs pcseg/external_libs/softgroup_ops built (see README + PLA's own requirements.txt)
+# ==========================================================================
