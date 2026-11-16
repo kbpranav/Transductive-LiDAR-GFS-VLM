@@ -69,3 +69,43 @@ sh scripts/train.sh \
 Pretrain Testing Eval script:
 
 sh scripts/test.sh   -d nuscenes   -c semseg-pt-v3m1-0-gfspretrain   -n pt_v3_nuscenes_newnovel1_pretrain   -w model_best   -g 1   -o "test.type=SemSegValTester"
+
+
+Transductive inference script:
+
+CUDA_VISIBLE_DEVICES=5 python transductive_inference.py   --config-file configs/nuscenes/semseg-pt-v3m1-0-gfsregistrain_k5.py   --checkpoint exp/nuscenes/pt_v3_nuscenes_registrain_k5_newnovel3/model/regis2_model_best.pth --k 8
+
+ll command combinations, pinned to GPU 5 (checkpoint path is the one we tested with — swap for the one you actually want):
+
+1. BN adaptation only
+
+
+CUDA_VISIBLE_DEVICES=5 python transductive_inference_2.py \
+  --checkpoint exp/nuscenes/pt_v3_nuscenes_registrain_k5_newnovel3/model/regis2_model_best.pth \
+  --method bn_adapt --device cuda
+  
+2. Entropy minimization only
+
+
+CUDA_VISIBLE_DEVICES=5 python transductive_inference_2.py \
+  --checkpoint exp/nuscenes/pt_v3_nuscenes_registrain_k5_newnovel3/model/regis2_model_best.pth \
+  --method entropy_min --device cuda
+3. Both, sequentially (default if you omit --method)
+
+
+CUDA_VISIBLE_DEVICES=5 python transductive_inference_2.py \
+  --checkpoint exp/nuscenes/pt_v3_nuscenes_registrain_k5_newnovel3/model/regis2_model_best.pth \
+  --method both --device cuda
+All three accept the same optional knobs on top:
+
+--limit N — quick smoke test on the first N scans instead of all 6019 (e.g. --limit 50)
+--bn-num-passes K — number of full passes over the target scans for BN stat collection (default 1)
+--entropy-lr LR — Adam LR for entropy minimization (default 1e-3)
+--entropy-num-epochs E — number of passes for entropy minimization (default 1)
+--config-file PATH — only if you're not using the nuScenes gfsregistrain_k5 config (that's already the default)
+E.g. a fast sanity check of both methods on GPU 5 before committing to a full run:
+
+
+CUDA_VISIBLE_DEVICES=5 python transductive_inference_2.py \
+  --checkpoint exp/nuscenes/pt_v3_nuscenes_registrain_k5_newnovel2/model/regis2_model_best.pth \
+  --method both --device cuda --limit 50
