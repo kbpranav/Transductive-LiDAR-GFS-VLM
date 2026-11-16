@@ -1,0 +1,3 @@
+[submodule "transduction-for-vlms"]
+	path = transduction-for-vlms
+	url = https://github.com/MaxZanella/transduction-for-vlms.git
