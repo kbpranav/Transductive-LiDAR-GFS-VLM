@@ -591,6 +591,32 @@ class GFS_VL_Trainer(Trainer):
 
         return model
 
+    def _resume_from_checkpoint(self, checkpoint):
+        """Restore model/optimizer/scheduler/scaler/best-metric state from a
+        per-registration checkpoint so the current registration's training
+        loop can continue from `self.start_epoch` without redoing already
+        -completed epochs or losing optimizer/scheduler momentum.
+        """
+        weight = OrderedDict()
+        for key, value in checkpoint["state_dict"].items():
+            if key.startswith("module."):
+                if comm.get_world_size() == 1:
+                    key = key[7:]
+            else:
+                if comm.get_world_size() > 1:
+                    key = "module." + key
+            weight[key] = value
+        self.model.load_state_dict(weight, strict=True)
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.scheduler.load_state_dict(checkpoint["scheduler"])
+        if self.cfg.enable_amp and checkpoint.get("scaler") is not None:
+            self.scaler.load_state_dict(checkpoint["scaler"])
+        self.best_metric_value = checkpoint["best_metric_value"]
+        self.logger.info(
+            f"=> Resumed {self.regis_str}: model/optimizer/scheduler/scaler "
+            f"restored (checkpoint epoch {checkpoint['epoch']})."
+        )
+
     # ─────────────────────────────────────────────────────────────────────
     # Main training loop (multi-registration)
     # ─────────────────────────────────────────────────────────────────────
@@ -601,7 +627,23 @@ class GFS_VL_Trainer(Trainer):
           1. Extract novel-class prototypes from the registration set using OpenScene.
           2. Build the k-shot training loader.
           3. Run the standard training loop with VLM-calibrated targets.
+
+        Resume behavior (controlled by cfg.resume, default False):
+          - A registration whose saved checkpoint already reached
+            cfg.eval_epoch is treated as complete: weights are loaded and
+            only eval is run (unchanged from before).
+          - A registration with a *partial* checkpoint (0 < epoch <
+            eval_epoch) is resumed from exactly the next un-run epoch when
+            cfg.resume=True: model/optimizer/scheduler/scaler state are
+            restored from that checkpoint, so no completed epoch is redone
+            and no partially-completed one is skipped.
+          - cfg.resume_epoch can force resuming from a specific earlier
+            snapshot instead of the latest one, e.g. "regis2_epoch_5.pth"
+            (only exists if `save_freq` was set on CheckpointSaver_MultiRegis
+            during the original run).
         """
+        model_dir = os.path.join(self.cfg.save_path, "model")
+
         for self.regis_str in self.cfg.regis_train_list:
             if hasattr(self.cfg.data, self.regis_str):
                 val_data_cfg = getattr(self.cfg.data, self.regis_str)
@@ -610,17 +652,43 @@ class GFS_VL_Trainer(Trainer):
                     f"{self.regis_str} not found in self.cfg.data"
                 )
 
-            # ── Resume: skip training if this registration already completed ──
-            last_ckpt = os.path.join(
-                self.cfg.save_path, "model",
-                f"{self.regis_str}_model_last.pth",
+            self.start_epoch = 0
+            resume_ckpt = None
+
+            # ── Resolve which checkpoint (if any) to resume from ──
+            resume_epoch_cfg = (
+                self.cfg.resume_epoch
+                if ("resume_epoch" in self.cfg and self.cfg.resume_epoch)
+                else None
             )
-            if os.path.isfile(last_ckpt):
-                saved = torch.load(last_ckpt, map_location="cpu")
-                if saved.get("epoch", 0) >= self.cfg.eval_epoch:
+            last_ckpt = os.path.join(
+                model_dir, f"{self.regis_str}_model_last.pth"
+            )
+            if resume_epoch_cfg is not None:
+                ckpt_path = os.path.join(
+                    model_dir,
+                    f"{self.regis_str}_epoch_{resume_epoch_cfg}.pth",
+                )
+                if not os.path.isfile(ckpt_path):
+                    self.logger.warning(
+                        f"=> resume_epoch={resume_epoch_cfg} requested for "
+                        f"{self.regis_str} but {ckpt_path} was not found "
+                        f"(it only exists if save_freq was set during the "
+                        f"original run). Falling back to {last_ckpt}."
+                    )
+                    ckpt_path = last_ckpt
+            else:
+                ckpt_path = last_ckpt
+
+            if os.path.isfile(ckpt_path):
+                saved = torch.load(ckpt_path, map_location="cpu")
+                saved_epoch = saved.get("epoch", 0)
+
+                if ckpt_path == last_ckpt and saved_epoch >= self.cfg.eval_epoch:
+                    # ── already fully completed: load weights, eval only ──
                     self.logger.info(
                         f"=> {self.regis_str} already completed "
-                        f"(epoch {saved['epoch']}). "
+                        f"(epoch {saved_epoch}). "
                         f"Loading checkpoint and running eval only."
                     )
                     weight = OrderedDict(
@@ -632,6 +700,23 @@ class GFS_VL_Trainer(Trainer):
                             h.before_train()
                         self.after_train()
                     continue
+                elif saved_epoch > 0 and self.cfg.resume:
+                    resume_ckpt = saved
+                    self.start_epoch = saved_epoch
+                    self.logger.info(
+                        f"=> Resuming {self.regis_str} from {ckpt_path} "
+                        f"(epoch {saved_epoch}/{self.cfg.eval_epoch}); "
+                        f"training will continue starting at the beginning "
+                        f"of epoch {saved_epoch + 1}."
+                    )
+                elif saved_epoch > 0:
+                    self.logger.warning(
+                        f"=> Found checkpoint for {self.regis_str} at epoch "
+                        f"{saved_epoch}/{self.cfg.eval_epoch}, but "
+                        f"cfg.resume=False -> restarting {self.regis_str} "
+                        f"from scratch. Pass resume=True to continue "
+                        f"from this checkpoint instead."
+                    )
             # ──────────────────────────────────────────────────────────────────
 
             val_data = build_dataset(val_data_cfg)
@@ -660,6 +745,14 @@ class GFS_VL_Trainer(Trainer):
             # 3. Training loop for this registration
             with EventStorage() as self.storage, ExceptionWriter():
                 self.before_train()
+                if resume_ckpt is not None:
+                    # Runs *after* before_train() on purpose: BackboneLoader
+                    # (a before_train hook) always reloads the base
+                    # backbone_weight at the start of every registration, so
+                    # restoring the resumed checkpoint has to happen after
+                    # that hook runs, otherwise it would immediately
+                    # overwrite the backbone weights we just resumed.
+                    self._resume_from_checkpoint(resume_ckpt)
                 self.logger.info(
                     ">>>>>>>>>>>>>>>> Start Training >>>>>>>>>>>>>>>>"
                 )

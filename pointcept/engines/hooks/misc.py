@@ -310,7 +310,10 @@ class CheckpointSaver_MultiRegis(HookBase):
                     os.path.join(
                         self.trainer.cfg.save_path,
                         "model",
-                        f"epoch_{self.trainer.epoch + 1}.pth",
+                        # namespaced per regis_str: without this, periodic
+                        # snapshots from regis1..regis5 would all collide on
+                        # the same "epoch_N.pth" filename.
+                        f"{self.trainer.regis_str}_epoch_{self.trainer.epoch + 1}.pth",
                     ),
                 )
 
