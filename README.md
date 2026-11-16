@@ -1,94 +1,45 @@
-<p align="center">
-  <h1 align="center">Generalized Few-shot 3D Point Cloud Segmentation with Vision-Language Model</h1>
-  <p align="center">
-    <a href="https://zhaochongan.github.io/"><strong>Zhaochong An</strong></a>
-    ·
-    <a href="https://guoleisun.github.io/"><strong>Guolei Sun<sup>†</sup></strong></a>
-    ·
-    <a href="https://yun-liu.github.io/"><strong>Yun Liu<sup>†</sup></strong></a>
-    ·
-    <a href="https://runjiali-rl.github.io/"><strong>Runjia Li</strong></a>
-    ·
-    <a href="https://junlinhan.github.io/"><strong>Junlin Han</strong></a>
-    <br>
-    <a href="https://people.ee.ethz.ch/~kender/"><strong>Ender Konukoglu</strong></a>
-    ·
-    <a href="https://sergebelongie.github.io/"><strong>Serge Belongie</strong></a>
-  </p>
-  <h2 align="center">CVPR 2025 (<a href="https://arxiv.org/pdf/2503.16282">Paper</a>)</h2>
-</p>
+# Transductive LiDAR GFS-VLM
 
-<p align="center">
-  <img src="./docs/GFS_VL.png" alt="Overview" width="100%">
-</p>
+Adapting **GFS-VL** — *Generalized Few-Shot 3D Point Cloud Segmentation with Vision-Language Models* (An et al., CVPR 2025) — from indoor RGB-D scans (ScanNet) to outdoor **LiDAR** segmentation on **nuScenes**.
 
+GFS-VL's core idea is to combine *dense-but-noisy* pseudo-labels distilled from a 3D vision-language model with a handful of *precise* few-shot examples, so a model can generalize to novel classes it was given only 1 or 5 labeled points of. This repo ports that idea to a domain it was never built or tested for: sparse, color-less, large-scale outdoor point clouds, with a vision-language distillation source (OpenScene's OpenSeg) swapped in for the original indoor RegionPLC, and pseudo-label filtering / loss weighting / voxelization re-tuned for outdoor class imbalance.
 
-## 🌟 Highlights
-
-
-### Key Contributions:
-
-**Model Side:**
-
-- **GFS-VL Framework:** A novel approach for generalized few-shot 3D point cloud segmentation (GFS-PCS) that combines **Dense yet noisy knowledge** from 3D Vision-Language Models and **Precise yet sparse few-shot samples** to achieve superior novel class generalization.
-
-**Benchmarking Side:**
-
-- Introduces **two challenging GFS-PCS benchmarks with diverse novel classes** for extensive generalization evaluation, laying a solid foundation for real-world GFS-PCS advancements.
-
-
-## 📝 Citation
-If you find our work useful, please cite our work:
-```bibtex
-@inproceedings{an2025generalized,
-  title={Generalized Few-shot 3D Point Cloud Segmentation with Vision-Language Model},
-  author={An, Zhaochong and Sun, Guolei and Liu, Yun and Li, Runjia and Han, Junlin and Konukoglu, Ender and Belongie, Serge},
-  booktitle={CVPR},
-  year={2025}
-}
-
-@inproceedings{an2024multimodality,
-    title={Multimodality Helps Few-Shot 3D Point Cloud Semantic Segmentation},
-    author={An, Zhaochong and Sun, Guolei and Liu, Yun and Li, Runjia and Wu, Min 
-            and Cheng, Ming-Ming and Konukoglu, Ender and Belongie, Serge},
-    booktitle={ICLR},
-    year={2025}
-}
-
-@inproceedings{an2024rethinking,
-  title={Rethinking Few-shot 3D Point Cloud Semantic Segmentation},
-  author={An, Zhaochong and Sun, Guolei and Liu, Yun and Liu, Fayao and Wu, Zongwei and Wang, Dan and Van Gool, Luc and Belongie, Serge},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
-  pages={3996--4006},
-  year={2024}
-}
-```
----
-
-## 📖 Table of Contents
-
-- [Installation](#%EF%B8%8F-installation)
-- [Data Preparation](#-data-preparation)
-- [Training](#-training)
-- [Evaluation & Visualization](#-evaluation--visualization)
-- [Model Zoo](#-model-zoo)
-- [Acknowledgement](#acknowledgement)
+For the full story and current results, see:
+- **[`paper.md`](paper.md)** — workshop-paper-style writeup (what/why/how + results analysis).
+- **[`report.md`](report.md)** — engineering handoff doc (workspace layout, exact settings, experiment history, open TODOs).
 
 ---
 
+## What's here vs. upstream GFS-VL
 
-## 🛠️ Installation
+This started as a straight merge of upstream GFS-VL + OpenScene + Pointcept (see `git log main`). Everything nuScenes-specific lives on the `new-novel` branch:
 
-### Requirements
+- `configs/nuscenes/semseg-pt-v3m1-0-gfspretrain.py` / `semseg-pt-v3m1-0-gfsregistrain_k{1,5}.py` — base pretraining and k-shot registration-training configs for nuScenes, with outdoor-tuned pseudo-label thresholds, loss weighting, and voxel grid size.
+- `pointcept/datasets/nuscenes.py`, `pointcept/datasets/preprocessing/nuscenes/nuscenes_constants.py` — nuScenes dataset loaders and the 12-base/4-novel class split (novel: **truck, motorcycle, bus, pedestrian**).
+- `pointcept/engines/train.py` (`GFS_VL_Trainer`) — VLM prototype extraction/normalization for LiDAR features, plus checkpoint-resume support across the 5 registration sets.
+- `pointcept/engines/test.py` (`SemSegValTester`) — a standalone quick-eval tester.
+- `validate_vlm.py` — validates the OpenScene VLM's own segmentation quality on nuScenes independently of the GFS-VL pipeline.
+- `test_dataloader.py` — sanity-checks the few-shot dataset wiring before a training run.
+- `transductive_inference.py`, `transductive_inference_2.py`, `transclip_inference.py` — inference-time refinement/adaptation of an already-trained, frozen checkpoint (label propagation, BatchNorm adaptation, entropy minimization, and a LiDAR-ported TransCLIP solver). No additional labels, no further few-shot supervision — see `paper.md` §4 for why these are the proposed next step.
+- `run_gpu_cleaner.sh` — kills zombie GPU processes left behind by crashed runs.
 
-- **CUDA**: 11.8 and above
-- **PyTorch**: 1.13.0 and above
+## Vision-language model used
 
-Our environment is tested on both RTX 3090 and A100 GPUs.
+Registration training distills from **OpenScene's OpenSeg weights** (`data/nuscenes_openseg.pth.tar`, downloaded from `cvg-data.inf.ethz.ch/openscene/models/nuscenes_openseg.pth.tar`) rather than the original paper's RegionPLC — OpenSeg's 3D features are distilled from outdoor multi-camera driving data, which matches this domain. RegionPLC/PLA code is still vendored (`pointcept/models/PLA/`) for reference but is not the weight actually wired into the nuScenes configs.
 
-### Environment Setup:
+## Dataset
 
-**Manual Setup**
+**nuScenes-lidarseg**, 16 classes total:
+- **Base (12):** barrier, bicycle, car, construction-vehicle, traffic-cone, trailer, driveable-surface, other-flat, sidewalk, terrain, manmade, vegetation.
+- **Novel (4, few-shot):** truck, motorcycle, bus, pedestrian.
+
+Training reads from `data/nuscenes` (symlinked to `../nuscenes-processed`, outside this repo) — mmdet3d-style info pickles plus per-seed few-shot registration split files. See `report.md` §2 for the full workspace/data layout.
+
+---
+
+## Installation
+
+Same base dependency stack as upstream Pointcept/GFS-VL:
 
 ```bash
 python -m venv gfs_vl
@@ -102,168 +53,95 @@ pip install git+https://github.com/openai/CLIP.git
 pip install flash-attn --no-build-isolation
 pip install spconv-cu118 # see https://github.com/traveller59/spconv for details
 
-# Pointops CUDA Dependencies (choose one of the three options)
+# Pointops CUDA dependencies
 cd libs/pointops
-# Option 1: Standard install
-python setup.py install
-# Option 2: Docker & Multi-GPU arch
-TORCH_CUDA_ARCH_LIST="ARCH LIST" python setup.py install
-# Option 3: For RTX 3090 (8.6) or A100 (8.0). More details in: https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
-TORCH_CUDA_ARCH_LIST="8.0" python setup.py install
-
-# For the second CUDA dependency, use the same one of three above build options
+TORCH_CUDA_ARCH_LIST="8.0" python setup.py install   # 8.0 for A100, 8.6 for RTX 3090
 cd ../../libs/pointops2
 TORCH_CUDA_ARCH_LIST="8.0" python setup.py install
 ```
 
-After above steps, install dependencies for the 3D vision-language models (RegionPLC). Refer to the [RegionPLC installation guide](https://github.com/CVMI-Lab/PLA/blob/regionplc/docs/INSTALL.md).
+CUDA 11.8+, PyTorch 1.13+. Tested on RTX 3090 / A100.
 
+RegionPLC/`pointcept/models/PLA` build steps (needed only if you intend to use RegionPLC rather than OpenScene as the VLM) are unchanged from upstream — see that folder's own `README.md`. `transduction-for-vlms/` is a git submodule (reference code for the TransCLIP solver ported into `transclip_inference.py`); run `git submodule update --init` if you need its contents.
+
+## Data preparation
+
+nuScenes: follow the [Pointcept nuScenes data guidelines](https://github.com/Pointcept/Pointcept#data-preparation) to produce the `data_root` directory of info pickles, then point `data/nuscenes` at it (see `report.md` §2 for how this repo's own data currently is wired via symlinks). `test_dataloader.py` will also generate the few-shot registration split files (`nuscenes_regis_{k}_{seed}.txt`) the first time it's run against a new k-shot/seed combination.
+
+## Training
+
+**1. Base-class pretraining:**
 ```bash
-cd pointcept/models/PLA
-TORCH_CUDA_ARCH_LIST="8.0" python3 setup.py develop
-
-# Install softgroup_ops:
-cd pcseg/external_libs/softgroup_ops
-TORCH_CUDA_ARCH_LIST="8.0" python setup.py build_ext develop
-
-# If the direct install fails, follow these steps:
-# 1. Download google-sparsehash-2.0.3-1.tar.bz2 from:
-#    https://anaconda.org/bioconda/google-sparsehash/files
-# 2. Extract it:
-tar -I pigz -xvjf google-sparsehash-2.0.3-1.tar.bz2 -C ./google-sparsehash
-# 3. Set include path:
-export CPLUS_INCLUDE_PATH=$(pwd)/google-sparsehash/include:$CPLUS_INCLUDE_PATH
-# 4. Build with the include directories:
-TORCH_CUDA_ARCH_LIST="8.0" python setup.py build_ext --include-dirs=$CPLUS_INCLUDE_PATH develop
+sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfspretrain -n ${EXP_NAME} -g 4
 ```
 
-## 📦 Data Preparation
-
-We follow the [Pointcept Data Guidelines](https://github.com/Pointcept/Pointcept#data-preparation).
-
-### ScanNet & ScanNet200
-
-1. Download the [ScanNet v2 dataset](http://www.scan-net.org/).
-2. Preprocess the raw data:
-    ```bash
-    # Set RAW_SCANNET_DIR to your downloaded dataset directory
-    # Set PROCESSED_SCANNET_DIR to the desired output directory
-    python pointcept/datasets/preprocessing/scannet/preprocess_scannet.py \
-      --dataset_root ${RAW_SCANNET_DIR} \
-      --output_root ${PROCESSED_SCANNET_DIR}
-    ```
-
-- *(Alternative)*: Download our preprocessed data from [here](https://huggingface.co/datasets/ZhaochongAn/GFS_PCS_Datasets/blob/main/ScanNet200.tar.gz) (please agree to the official license).
-
-
-After obtaining the dataset, either set `data_root` in configs to `${PROCESSED_SCANNET_DIR}` or link the processed data:
-  ```bash
-  ln -s ${PROCESSED_SCANNET_DIR} ${CODEBASE_DIR}/data/ScanNet200
-  ```
-
-### ScanNet++
-
-1. Download the [ScanNet++ dataset](https://kaldir.vc.in.tum.de/scannetpp/).
-2. Preprocess the raw data:
-    ```bash
-    # Set RAW_SCANNETPP_DIR to your downloaded dataset directory
-    # Set PROCESSED_SCANNETPP_DIR to the desired output directory
-    # NUM_WORKERS: number of parallel workers
-    python pointcept/datasets/preprocessing/scannetpp/preprocess_scannetpp.py \
-      --dataset_root ${RAW_SCANNETPP_DIR} \
-      --output_root ${PROCESSED_SCANNETPP_DIR} \
-      --num_workers ${NUM_WORKERS}
-    ```
-3. Sampling and chunking large point cloud data in train/val split (for training only):
-    ```bash
-    # For the training split (change --split to val for the validation split):
-    python pointcept/datasets/preprocessing/sampling_chunking_data.py \
-      --dataset_root ${PROCESSED_SCANNETPP_DIR} \
-      --grid_size 0.01 \
-      --chunk_range 6 6 \
-      --chunk_stride 3 3 \
-      --split train \
-      --num_workers ${NUM_WORKERS}
-    ```
-
-- *(Alternative)* Download our preprocessed data directly from [here](https://huggingface.co/datasets/ZhaochongAn/GFS_PCS_Datasets/blob/main/ScanNetpp.tar.gz) (please agree to the official license).
-
-After obtaining the dataset, either set `data_root` in configs to `${PROCESSED_SCANNET_DIR}` or link the processed data:
-  ```bash
-  ln -s ${PROCESSED_SCANNETPP_DIR} ${CODEBASE_DIR}/data/ScanNetpp
-  ```
-
-## 🔄 Training
-
-### 1. Backbone Pretraining
-
-- **Option A**: Download our [Pretrained weights](https://huggingface.co/ZhaochongAn/GFS_VL/tree/main/backbone_weights)
-- **Option B**: Train from scratch using the pretrain config from the `configs` folder. Training outputs will be saved into the folder specified by `${EXP_NAME}`.
-
-  ```bash
-  sh scripts/train.sh -p python -d scannet200 -c semseg-pt-v3m1-0-gfspretrain -n ${EXP_NAME} -g 4
-  ```
-
-> Replace `-d scannet200` with `scannet` or `scannetpp` when training on those datasets.
-
-### 2. Registration Training
-
-- Set the configuration file (`-c`) to:
-  - `semseg-pt-v3m1-0-gfsregistrain_k1.yaml` for 1-shot registration.
-  - `semseg-pt-v3m1-0-gfsregistrain_k5.yaml` for 5-shot registration.
-
-- Download the pretrained 3D VLM weights from [Regionplc repo](https://connecthkuhk-my.sharepoint.com/personal/jhyang13_connect_hku_hk/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fjhyang13%5Fconnect%5Fhku%5Fhk%2FDocuments%2Fpretrained%5Fmodels%2Fregionplc%2Fpretrained%5Fmodels%2Fsem%5Fseg%2Fscannet%5Fannotation%5Ffree%2Fsparseunet32%5F636%2Epth&parent=%2Fpersonal%2Fjhyang13%5Fconnect%5Fhku%5Fhk%2FDocuments%2Fpretrained%5Fmodels%2Fregionplc%2Fpretrained%5Fmodels%2Fsem%5Fseg%2Fscannet%5Fannotation%5Ffree&ga=1) or [our Huggingface repo](https://huggingface.co/ZhaochongAn/GFS_VL/tree/main/3d_vlm_weight).
-- Update the config file by setting (`-o`):
-  - `vlm_3d_weight`: path to the pretrained VLM weight.
-  - `backbone_weight`: path from Backbone Pretraining.
-  - `data_root`: corresponding dataset folder.
-
-The `regis_train_list` field controls the registration sets to use (By default, training is performed on five different sets; the final performance is reported as an average).
-
-For example, for ScanNet200 (1-shot):
+**2. Few-shot registration training** (5 independent registration sets, k=5 by default):
 ```bash
-sh scripts/train.sh -p python -d scannet200 -c semseg-pt-v3m1-0-gfsregistrain_k1 -n ${EXP_NAME} -g 4
+sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfsregistrain_k5 -n ${EXP_NAME} -g 6 \
+  -o "backbone_weight=./exp/nuscenes/${PRETRAIN_EXP_NAME}/model/model_best.pth"
 ```
-> Replace `-d scannet200` with `scannet` or `scannetpp` when training on those datasets.
+Resume a partially completed registration run (see `report.md` §9 for exactly how this is resolved per registration set):
+```bash
+sh scripts/train.sh -p python -d nuscenes -c semseg-pt-v3m1-0-gfsregistrain_k5 -n ${EXP_NAME} -g 6 -o "resume=true"
+```
+`regis_train_list` in the config controls which registration sets run; final performance is reported as the average across all 5.
 
-## 📊 Evaluation & Visualization
+More worked examples (including the exact commands used for every run in `report.md`) are in `scripts/gfs_pretrain_commands.txt`.
 
-###  Evaluation
-By default, five fine-tuned weights (from five registration sets) are saved. To evaluate a specific weight, use the `-w` option:
+## Evaluation
 
 ```bash
-sh scripts/test.sh -p python -d scannet -c semseg-pt-v3m1-0-gfsregistrain_k1 -n ${EXP_NAME} -w regis1_model_last -g 4
+sh scripts/test.sh -d nuscenes -c semseg-pt-v3m1-0-gfsregistrain_k5 -n ${EXP_NAME} -w regis1_model_last -g 1
+```
+For a quick re-run of the same eval that fires after each training epoch (no fragment-based precise eval), use `SemSegValTester`:
+```bash
+sh scripts/test.sh -d nuscenes -c semseg-pt-v3m1-0-gfspretrain -n ${EXP_NAME} -w model_best -g 1 -o "test.type=SemSegValTester"
 ```
 
-> **Note**: Our evaluation is performed on whole scenes (unlike prior evaluations only on small blocks) to better simulate real-world scenarios.
+## Transductive / test-time refinement
 
+Run against an already-trained, frozen registration checkpoint — no further labels needed:
+```bash
+# Confidence-aware label propagation
+python transductive_inference.py --config-file configs/nuscenes/semseg-pt-v3m1-0-gfsregistrain_k5.py \
+  --checkpoint ${CHECKPOINT_PATH} --k 8
 
-### Visualization
+# BN-stat adaptation / entropy minimization / both
+python transductive_inference_2.py --checkpoint ${CHECKPOINT_PATH} --method bn_adapt|entropy_min|both
 
-Add `-o vis VISUALIZATION_SAVE_PATH` to the evaluation command to automatically save files for visualization. Then, follow the [COSeg visualization guide](https://github.com/ZhaochongAn/COSeg?tab=readme-ov-file#visualization) for high-quality visualization results.
+# TransCLIP-ported refinement
+python transclip_inference.py --checkpoint ${CHECKPOINT_PATH}
+```
+All three accept `--limit N` for a quick smoke test on the first N scans. See `scripts/gfs_pretrain_commands.txt` for the full flag reference.
 
+---
 
-## 🎯 Model Zoo
+## Results (nuScenes, k=5, averaged over 5 registration sets)
 
-| Model | Dataset | K-shot | Weights |
-|:-------:|:---------:|:------------:|:----------:|
-| sc_k1 | ScanNet | 1-shot | [Download](https://huggingface.co/ZhaochongAn/GFS_VL/tree/main/sc_k1) |
-| sc_k5 | ScanNet | 5-shot | [Download](https://huggingface.co/ZhaochongAn/GFS_VL/tree/main/sc_k5) |
-| sc200_k1 | ScanNet200 | 1-shot | [Download](https://huggingface.co/ZhaochongAn/GFS_VL/tree/main/sc200_k1) |
-| sc200_k5 | ScanNet200 | 5-shot | [Download](https://huggingface.co/ZhaochongAn/GFS_VL/tree/main/sc200_k5) |
-| scpp_k1 | ScanNet++ | 1-shot | [Download](https://huggingface.co/ZhaochongAn/GFS_VL/tree/main/scpp_k1) |
-| scpp_k5 | ScanNet++ | 5-shot | [Download](https://huggingface.co/ZhaochongAn/GFS_VL/tree/main/scpp_k5) |
+| | mIoU | Base | Novel | HM |
+|---|---|---|---|---|
+| Base pretrain only | 0.7320 | — | — | — |
+| Registration training | 0.6616 | 0.6711 | 0.6331 | 0.6515 |
 
+See `paper.md` for the full per-class breakdown and analysis (including a clear forgetting effect on trailer/construction-vehicle, and bicycle remaining the hardest class despite loss upweighting).
+
+---
+
+## Citation
+
+This repo builds directly on the GFS-VL framework and codebase. If you use this work, please cite the original paper:
+
+```bibtex
+@inproceedings{an2025generalized,
+  title={Generalized Few-shot 3D Point Cloud Segmentation with Vision-Language Model},
+  author={An, Zhaochong and Sun, Guolei and Liu, Yun and Li, Runjia and Han, Junlin and Konukoglu, Ender and Belongie, Serge},
+  booktitle={CVPR},
+  year={2025}
+}
+```
 
 ## Acknowledgement
 
-This repository is developed by [Zhaochong An](https://zhaochongan.github.io/) and builds upon the excellent works of [COSeg](https://github.com/ZhaochongAn/COSeg), [Pointcept](https://github.com/Pointcept/Pointcept), [RegionPLC](https://github.com/CVMI-Lab/PLA/tree/regionplc), and [Openscene](https://github.com/pengsongyou/openscene). Many thanks to all contributors!
+Built on [GFS-VL](https://github.com/ZhaochongAn/GFS_VL) by Zhaochong An, which itself builds on [COSeg](https://github.com/ZhaochongAn/COSeg), [Pointcept](https://github.com/Pointcept/Pointcept), [RegionPLC](https://github.com/CVMI-Lab/PLA/tree/regionplc), and [OpenScene](https://github.com/pengsongyou/openscene). The TransCLIP solver ported into `transclip_inference.py` is from [transduction-for-vlms](https://github.com/MaxZanella/transduction-for-vlms) (Zanella et al., NeurIPS 2024).
 
-For questions or issues, feel free to reach out:
-
-- **Email:** anzhaochong@outlook.com
-- **Join our Communication Group (WeChat):**
-
-<div style="text-align: left;">
-    <img src="https://files.mdnice.com/user/67517/068822c4-cece-4ac5-b1db-5c138a91a718.png" width="200"/>
-</div>
+Released under the same [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode) license as upstream GFS-VL (non-commercial use only).
