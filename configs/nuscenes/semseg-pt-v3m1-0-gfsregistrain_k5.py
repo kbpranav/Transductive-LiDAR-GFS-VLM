@@ -12,8 +12,8 @@ train = dict(type="GFS_VL_Trainer")
 test = dict(type="GFSSemSegFastTester")
 
 # misc custom setting
-batch_size = 8  # bs: total bs in all gpus
-num_worker = 4
+batch_size = 6  # bs: total bs in all gpus
+num_worker = 6
 mix_prob = 0
 empty_cache = True
 enable_amp = True
@@ -172,7 +172,7 @@ data = dict(
             dict(type="SphereCrop", point_max=50000, mode="random"),
             dict(
                 type="GridSample",
-                grid_size=0.1,
+                grid_size=0.05,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -197,7 +197,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.1,
+                grid_size=0.05,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -222,7 +222,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.1,
+                grid_size=0.05,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -247,7 +247,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.1,
+                grid_size=0.05,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -272,7 +272,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.1,
+                grid_size=0.05,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -297,7 +297,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.1,
+                grid_size=0.05,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -320,7 +320,7 @@ data = dict(
         transform=[
             dict(
                 type="GridSample",
-                grid_size=0.1,
+                grid_size=0.05,
                 hash_type="fnv",
                 mode="train",
                 return_grid_coord=True,
@@ -345,7 +345,7 @@ data = dict(
         test_cfg=dict(
             voxelize=dict(
                 type="GridSample",
-                grid_size=0.1,
+                grid_size=0.05,
                 hash_type="fnv",
                 mode="test",
                 return_grid_coord=True,

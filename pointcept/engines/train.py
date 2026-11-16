@@ -427,7 +427,7 @@ class GFS_VL_Trainer(Trainer):
         xyz = input_dict["coord"]        # (N, 3) on CUDA
         offset = input_dict["offset"]    # cumulative end indices, e.g. [512] or [512, 1024]
 
-        voxel_size = 0.1
+        voxel_size = 0.05
         coords_list = []
         feats_list = []
         self._sparse_offsets = []        # list of (sparse_start, inds_recon_cuda, orig_start)
